@@ -2,9 +2,12 @@ import brian2 as b2
 import matplotlib.pyplot as plt
 import numpy as np
 
+# b2.set_device('cpp_standalone', build_on_run=False)
+
 b2.start_scope()
 
-n_e = 20
+# Diehl and Cook neuron model from https://github.com/sdpenguin/Brian2STDPMNIST/blob/2d935d0a98b6c94cfbc1cb8304f16a578a57342b/Diehl%26Cook_spiking_MNIST_Brian2.py#L204
+n_e = 16
 n_i = 1
 v_rest_e = -65. * b2.mV
 v_rest_i = -60. * b2.mV
@@ -27,7 +30,7 @@ neuron_eqs_e = '''
 dv/dt = ((v_rest_e - v) + (I_synE+I_synI) / nS) / (100*ms)  : volt (unless refractory)
 I_synE = ge * nS *         -v                           : amp
 I_synI = gi * nS * (-100.*mV-v)                          : amp
-dge/dt = -ge/(1.0*ms)                                   : 1
+dge/dt = -ge/(5.0*ms)                                   : 1
 dgi/dt = -gi/(2.0*ms)                                  : 1
 theta      :volt
 '''
@@ -51,7 +54,7 @@ voltage_e = b2.StateMonitor(neuron_group_e, 'v', record=True)
 
 ee_connection = b2.Synapses(neuron_group_e, neuron_group_e, 'w : 1', on_pre='ge_post += w')
 ee_connection.connect(True)
-ee_connection.w = '15.0*exp(-(i_pre-i_post)**2 / (2*2**2))'
+ee_connection.w = '15.0*exp(-(i_pre-i_post)**2 / (2*1.5**2))'
 
 ei_connection = b2.Synapses(neuron_group_e, neuron_group_i, 'w : 1', on_pre='ge_post += w')
 ei_connection.connect(True)
@@ -59,51 +62,32 @@ ei_connection.w = '2.0'
 
 ie_connection = b2.Synapses(neuron_group_i, neuron_group_e, 'w : 1', on_pre='gi_post += w')
 ie_connection.connect(True)
-ie_connection.w = '10.0'
+ie_connection.w = '50.0'
 
-# note: this is working more or less like a really bad attractor network
-
-# plt.scatter(ee_connection.i_pre[:], ee_connection.i_post[:], ee_connection.w[:]*20)
-# weights = np.zeros((n_e,n_e))
-# for i, j, w in zip(ee_connection.i_pre[:], ee_connection.i_post[:], ee_connection.w[:]):
-# 	weights[i,j] = w
-# plt.imshow(weights)
-# plt.show()
+plot_weights = False
+if plot_weights:
+	weights = np.zeros((n_e,n_e))
+	for pre, post, weight in zip(ee_connection.i_pre[:], ee_connection.i_post[:], ee_connection.w[:]):
+		weights[pre,post] = weight
+	plt.imshow(weights)
+	plt.show()
 
 neuron_group_input = b2.PoissonGroup(n_e, 0*b2.Hz)
 input_connection = b2.Synapses(neuron_group_input, neuron_group_e, 'w : 1', on_pre='ge_post += w')
 input_connection.connect('i==j')
-input_connection.w = '10.0'
+input_connection.w = '20.0'
 monitor_input = b2.SpikeMonitor(neuron_group_input)
 
-def visualise_connectivity(S):
-	Ns = len(S.source)
-	Nt = len(S.target)
-	plt.figure(figsize=(10, 4))
-	plt.subplot(121)
-	plt.plot(np.zeros(Ns), np.arange(Ns), 'ok', ms=10)
-	plt.plot(np.ones(Nt), np.arange(Nt), 'ok', ms=10)
-	for i, j in zip(S.i, S.j):
-		plt.plot([0, 1], [i, j], '-k')
-	plt.xticks([0, 1], ['Source', 'Target'])
-	plt.ylabel('Neuron index')
-	plt.xlim(-0.1, 1.1)
-	plt.ylim(-1, max(Ns, Nt))
-	plt.subplot(122)
-	plt.plot(S.i[:], S.j[:], 'ok')
-	plt.xlim(-1, Ns)
-	plt.ylim(-1, Nt)
-	plt.xlabel('Source neuron index')
-	plt.ylabel('Target neuron index')
-	plt.show()
-
-# visualise_connectivity(S)
-
-# neuron_group_e.v0 = [v0_max if 45<i<55 else 0 for i in range(N)]
-neuron_group_input.rates = [100*b2.Hz if 8<=i<=12 else 30*b2.Hz for i in range(n_e)]
-
 duration = 200*b2.ms
+
+neuron_group_input.rates = [100*b2.Hz if 8<=i<=10 else 70*b2.Hz for i in range(n_e)]
 b2.run(duration)
+neuron_group_input.rates = [100*b2.Hz if 1<=i<=4 else 20*b2.Hz for i in range(n_e)]
+b2.run(duration)
+neuron_group_input.rates = 0
+b2.run(duration)
+
+# b2.device.build(directory='output', compile=True, run=True, debug=False)
 
 fig, axs = plt.subplots(3, 1, figsize=(12,4), sharex=True)
 assert(isinstance(axs, np.ndarray))
