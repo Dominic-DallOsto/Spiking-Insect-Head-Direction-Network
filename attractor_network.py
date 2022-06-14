@@ -20,12 +20,10 @@ neuron_eqs_i = '''
 
 synapse_eqs_e = '''
 w = weight_ee*exp(-1/2 * (closest_dist/stdev_ee)**2) : 1
-closest_dist = num_e/2 - abs(abs(i_pre-i_post) - num_e/2) : 1
+closest_dist = N_pre/2 - abs(abs(i_pre-i_post) - N_pre/2) : 1
 '''
 
 default_params = {
-	'num_e': 16,
-	'num_i': 1,
 	'v_rest_e': -65. * b2.mV,
 	'v_rest_i': -60. * b2.mV,
 	'v_reset_e': -65. * b2.mV,
@@ -58,8 +56,6 @@ class AttractorNetwork():
 		scr_e = 'v = v_reset_e; timer = 0*ms'
 
 		self.default_params = default_params.copy()
-		self.default_params['num_e'] = num_e
-		self.default_params['num_i'] = num_i
 		self.params = self.default_params.copy()
 
 		self.network = b2.Network()
