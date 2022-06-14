@@ -2,7 +2,7 @@ import brian2 as b2
 
 # Diehl and Cook neuron model from https://github.com/sdpenguin/Brian2STDPMNIST/blob/2d935d0a98b6c94cfbc1cb8304f16a578a57342b/Diehl%26Cook_spiking_MNIST_Brian2.py#L204
 neuron_eqs_e = '''
-	dv/dt = ((v_rest_e - v) + (I_synE+I_synI) / nS) / (100*ms)  : volt (unless refractory)
+	dv/dt = ((v_rest_e - v) + (I_synE+I_synI) / nS) / (100*ms) + 10*mV/ms*sqrt(2/100*ms)*xi : volt (unless refractory)
 	I_synE = ge * nS *         -v                           : amp
 	I_synI = gi * nS * (-100.*mV-v)                          : amp
 	dge/dt = -ge/(tau_e)                                   : 1
@@ -11,7 +11,7 @@ neuron_eqs_e = '''
 '''
 
 neuron_eqs_i = '''
-	dv/dt = ((v_rest_i - v) + (I_synE+I_synI) / nS) / (10*ms)  : volt (unless refractory)
+	dv/dt = ((v_rest_i - v) + (I_synE+I_synI) / nS) / (10*ms) + 2*mV/ms*sqrt(2/10*ms)*xi : volt (unless refractory)
 	I_synE = ge * nS *         -v                           : amp
 	I_synI = gi * nS * (-85.*mV-v)                          : amp
 	dge/dt = -ge/(1.0*ms)                                   : 1
