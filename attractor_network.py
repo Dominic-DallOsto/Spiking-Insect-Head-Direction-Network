@@ -19,10 +19,13 @@ neuron_eqs_i = '''
 '''
 
 synapse_eqs_e = '''
-w = weight_ee*exp(-(i_pre-i_post)**2 / (2*stdev_ee**2)) : 1
+w = weight_ee*exp(-1/2 * (closest_dist/stdev_ee)**2) : 1
+closest_dist = num_e/2 - abs(abs(i_pre-i_post) - num_e/2) : 1
 '''
 
 default_params = {
+	'num_e': 16,
+	'num_i': 1,
 	'v_rest_e': -65. * b2.mV,
 	'v_rest_i': -60. * b2.mV,
 	'v_reset_e': -65. * b2.mV,
@@ -54,7 +57,10 @@ class AttractorNetwork():
 		v_reset_i_str = 'v=v_reset_i'
 		scr_e = 'v = v_reset_e; timer = 0*ms'
 
-		self.params = default_params.copy()
+		self.default_params = default_params.copy()
+		self.default_params['num_e'] = num_e
+		self.default_params['num_i'] = num_i
+		self.params = self.default_params.copy()
 
 		self.network = b2.Network()
 		neuron_group_e = b2.NeuronGroup(self.num_e, neuron_eqs_e, threshold=v_thresh_e_str, refractory='refrac_e', reset=scr_e, method='euler')
@@ -84,7 +90,7 @@ class AttractorNetwork():
 		self.network.store()
 	
 	def reset(self):
-		self.params = default_params.copy()
+		self.params = self.default_params.copy()
 		self.network.restore()
 
 	def run_with_inputs(self, duration, input_rates):
