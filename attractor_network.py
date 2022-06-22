@@ -39,6 +39,7 @@ default_params = {
 	'stdev_ee': 1.5,
 	'weight_ei': 2,
 	'weight_ie': 50,
+	'weight_ii': 2,
 	'weight_input': 20,
 	'v_noise_e': 20*b2.mV/b2.ms,
 	'v_noise_i': 10*b2.mV/b2.ms,
@@ -76,6 +77,9 @@ class AttractorNetwork():
 		ie_connection = b2.Synapses(neuron_group_i, neuron_group_e, 'w = weight_ie : 1', on_pre='gi_post += w')
 		ie_connection.connect('i == j')
 
+		ii_connection = b2.Synapses(neuron_group_i, neuron_group_i, 'w = weight_ii : 1', on_pre='gi_post += w')
+		ii_connection.connect(True)
+
 		self.neuron_group_input = b2.PoissonGroup(self.num_excitatory, 0*b2.Hz)
 		input_connection = b2.Synapses(self.neuron_group_input, neuron_group_e, 'w = weight_input : 1', on_pre='ge_post += w')
 		input_connection.connect('i == j')
@@ -84,7 +88,7 @@ class AttractorNetwork():
 		self.monitor_i = b2.SpikeMonitor(neuron_group_i)
 		self.monitor_input = b2.SpikeMonitor(self.neuron_group_input)
 
-		self.network.add([neuron_group_e, neuron_group_i, self.neuron_group_input, ee_connection, ei_connection, ie_connection, input_connection, self.monitor_e, self.monitor_i, self.monitor_input])
+		self.network.add([neuron_group_e, neuron_group_i, self.neuron_group_input, ee_connection, ei_connection, ie_connection, ii_connection, input_connection, self.monitor_e, self.monitor_i, self.monitor_input])
 
 		self.network.store()
 	
