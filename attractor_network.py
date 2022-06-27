@@ -1,4 +1,5 @@
 import brian2 as b2
+import numpy as np
 
 # Diehl and Cook neuron model from https://github.com/sdpenguin/Brian2STDPMNIST/blob/2d935d0a98b6c94cfbc1cb8304f16a578a57342b/Diehl%26Cook_spiking_MNIST_Brian2.py#L204
 # Added stochastic noise to the voltage update equations
@@ -19,7 +20,7 @@ neuron_eqs_i = '''
 	dgi/dt = -gi/(2.0*ms)                                  : 1
 '''
 
-synapse_eqs_e = '''
+synapse_eqs_e_gaussian = '''
 w = weight_ee*exp(-1/2 * (closest_dist/stdev_ee)**2) : 1
 closest_dist = N_pre/2 - abs(abs(i_pre-i_post) - N_pre/2) : 1
 '''
@@ -50,7 +51,7 @@ class AttractorNetwork():
 	'''
 	Attractor network with E and I neurons with synaptic current dynamics
 	'''
-	def __init__(self, num_excitatory:int=8, num_inhibitory:int=8) -> None:
+	def __init__(self, num_excitatory:int=8, num_inhibitory:int=8, weight_matrix_connectivity=True) -> None:
 		self.num_excitatory = num_excitatory
 		self.num_inhibitory = num_inhibitory
 
@@ -68,7 +69,10 @@ class AttractorNetwork():
 		neuron_group_e.v = self.params['v_rest_e']
 		neuron_group_i.v = self.params['v_rest_i']
 
-		ee_connection = b2.Synapses(neuron_group_e, neuron_group_e, synapse_eqs_e, on_pre='ge_post += w')
+		if weight_matrix_connectivity:
+			self.ee_connection = ee_connection = b2.Synapses(neuron_group_e, neuron_group_e, 'w : 1', on_pre='ge_post += w')
+		else:
+			self.ee_connection = ee_connection = b2.Synapses(neuron_group_e, neuron_group_e, synapse_eqs_e_gaussian, on_pre='ge_post += w')
 		ee_connection.connect(True)
 
 		ei_connection = b2.Synapses(neuron_group_e, neuron_group_i, 'w = weight_ei : 1', on_pre='ge_post += w')
@@ -84,11 +88,11 @@ class AttractorNetwork():
 		input_connection = b2.Synapses(self.neuron_group_input, neuron_group_e, 'w = weight_input : 1', on_pre='ge_post += w')
 		input_connection.connect('i == j')
 
-		self.monitor_e = b2.SpikeMonitor(neuron_group_e)
-		self.monitor_i = b2.SpikeMonitor(neuron_group_i)
-		self.monitor_input = b2.SpikeMonitor(self.neuron_group_input)
+		self.monitor_e = monitor_e = b2.SpikeMonitor(neuron_group_e)
+		self.monitor_i = monitor_i = b2.SpikeMonitor(neuron_group_i)
+		self.monitor_input = monitor_input = b2.SpikeMonitor(self.neuron_group_input)
 
-		self.network.add([neuron_group_e, neuron_group_i, self.neuron_group_input, ee_connection, ei_connection, ie_connection, ii_connection, input_connection, self.monitor_e, self.monitor_i, self.monitor_input])
+		self.network.add([neuron_group_e, neuron_group_i, self.neuron_group_input, ee_connection, ei_connection, ie_connection, ii_connection, input_connection, monitor_e, monitor_i, monitor_input])
 
 		self.network.store()
 	
@@ -99,3 +103,17 @@ class AttractorNetwork():
 	def run_with_inputs(self, duration, input_rates):
 		self.neuron_group_input.rates = input_rates
 		self.network.run(duration, namespace=self.params)
+
+	def set_EE_connectivity(self, weight_matrix: np.ndarray):
+		assert weight_matrix.ndim == 2, 'EE weight matrix should be 2D'
+		assert weight_matrix.shape[0] == self.num_excitatory, f'weight matrix should have {self.num_excitatory} size along first dimension'
+		assert weight_matrix.shape[1] == self.num_excitatory, f'weight matrix should have {self.num_excitatory} size along second dimension'
+
+		self.ee_connection.w = weight_matrix[self.ee_connection.i, self.ee_connection.j]
+
+	def circular_distance_EE_connectivity(self, weight_profile: np.ndarray):
+		half_neuron_number = self.num_excitatory // 2
+		assert weight_profile.shape[0] == half_neuron_number + 1, f'weight profile should have {half_neuron_number + 1} elements'
+
+		circular_distance = half_neuron_number - abs(abs(self.ee_connection.i-self.ee_connection.j) - half_neuron_number)
+		self.ee_connection.w = weight_profile[circular_distance]
