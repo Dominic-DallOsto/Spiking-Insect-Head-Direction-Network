@@ -2,27 +2,22 @@ import brian2 as b2
 import numpy as np
 
 # Diehl and Cook neuron model from https://github.com/sdpenguin/Brian2STDPMNIST/blob/2d935d0a98b6c94cfbc1cb8304f16a578a57342b/Diehl%26Cook_spiking_MNIST_Brian2.py#L204
-# Added stochastic noise to the voltage update equations
+# Rearranged and parameterised these equations for flexibility
+# Added stochastic noise to the voltage update equations - https://brian2.readthedocs.io/en/stable/user/models.html#noise
 neuron_eqs_e = '''
-	dv/dt = ((v_rest_e - v) + (I_synE+I_synI) / nS) / (100*ms) + v_noise_e*sqrt(2/100*ms)*xi : volt (unless refractory)
-	I_synE = ge * nS *         -v                           : amp
-	I_synI = gi * nS * (-100.*mV-v)                          : amp
-	dge/dt = -ge/(tau_e)                                   : 1
-	dgi/dt = -gi/(2.0*ms)                                  : 1
-	theta      :volt
+	dv/dt = 1/tau_e * ((v_rest_e - v) + (I_synE+I_synI)/g_mem_e) + sigma_noise_e * sqrt(2/tau_e)*xi 	: volt (unless refractory)
+	I_synE = ge * nS * (E_e_exc-v)																		: amp
+	I_synI = gi * nS * (E_e_inh-v)																		: amp
+	dge/dt = -ge/(tau_syn_e_exc)																		: 1
+	dgi/dt = -gi/(tau_syn_e_inh)																		: 1
 '''
 
 neuron_eqs_i = '''
-	dv/dt = ((v_rest_i - v) + (I_synE+I_synI) / nS) / (10*ms) + v_noise_i*sqrt(2/10*ms)*xi : volt (unless refractory)
-	I_synE = ge * nS *         -v                           : amp
-	I_synI = gi * nS * (-85.*mV-v)                          : amp
-	dge/dt = -ge/(1.0*ms)                                   : 1
-	dgi/dt = -gi/(2.0*ms)                                  : 1
-'''
-
-synapse_eqs_e_gaussian = '''
-w = weight_ee*exp(-1/2 * (closest_dist/stdev_ee)**2) : 1
-closest_dist = N_pre/2 - abs(abs(i_pre-i_post) - N_pre/2) : 1
+	dv/dt = 1/tau_i * ((v_rest_i - v) + (I_synE+I_synI)/g_mem_i)  + sigma_noise_i * sqrt(2/tau_i)*xi	: volt (unless refractory)
+	I_synE = ge * nS * (E_i_exc-v)																		: amp
+	I_synI = gi * nS * (E_i_inh-v)																		: amp
+	dge/dt = -ge/(tau_syn_i_exc)																		: 1
+	dgi/dt = -gi/(tau_syn_i_inh)																		: 1
 '''
 
 default_params = {
@@ -32,18 +27,26 @@ default_params = {
 	'v_reset_i': -45. * b2.mV,
 	'v_thresh_e': -52. * b2.mV,
 	'v_thresh_i': -40. * b2.mV,
-	'offset': 20.0*b2.mV,
 	'refrac_e': 5. * b2.ms,
 	'refrac_i': 2. * b2.ms,
-	'tau_e': 5.0*b2.ms,
-	'weight_ee': 15,
-	'stdev_ee': 1.5,
-	'weight_ei': 2,
-	'weight_ie': 50,
-	'weight_ii': 2,
-	'weight_input': 20,
-	'v_noise_e': 20*b2.mV/b2.ms,
-	'v_noise_i': 10*b2.mV/b2.ms,
+	'tau_e': 100. * b2.ms,
+	'tau_i': 10. * b2.ms,
+	'tau_syn_e_exc': 5. * b2.ms,
+	'tau_syn_e_inh': 2. * b2.ms,
+	'tau_syn_i_exc': 1. * b2.ms,
+	'tau_syn_i_inh': 2. * b2.ms,
+	'E_e_exc': 0. * b2.mV,
+	'E_e_inh': -100. * b2.mV,
+	'E_i_exc': 0. * b2.mV,
+	'E_i_inh': -85. * b2.mV,
+	'g_mem_e': 1. * b2.nS,
+	'g_mem_i': 1. * b2.nS,
+	'weight_ei': 2.,
+	'weight_ie': 50.,
+	'weight_ii': 2.,
+	'weight_input': 20.,
+	'sigma_noise_e': 20. * b2.mV,
+	'sigma_noise_i': 10. * b2.mV,
 }
 
 
@@ -51,28 +54,20 @@ class AttractorNetwork():
 	'''
 	Attractor network with E and I neurons with synaptic current dynamics
 	'''
-	def __init__(self, num_excitatory:int=8, num_inhibitory:int=8, weight_matrix_connectivity=True) -> None:
+	def __init__(self, num_excitatory:int=8, num_inhibitory:int=8) -> None:
 		self.num_excitatory = num_excitatory
 		self.num_inhibitory = num_inhibitory
-
-		v_thresh_e_str = 'v>v_thresh_e'
-		v_thresh_i_str = 'v>v_thresh_i'
-		v_reset_i_str = 'v=v_reset_i'
-		scr_e = 'v = v_reset_e; timer = 0*ms'
 
 		self.default_params = default_params.copy()
 		self.params = self.default_params.copy()
 
 		self.network = b2.Network()
-		neuron_group_e = b2.NeuronGroup(self.num_excitatory, neuron_eqs_e, threshold=v_thresh_e_str, refractory='refrac_e', reset=scr_e, method='euler')
-		neuron_group_i = b2.NeuronGroup(self.num_inhibitory, neuron_eqs_i, threshold=v_thresh_i_str, refractory='refrac_i', reset=v_reset_i_str, method='euler')
+		neuron_group_e = b2.NeuronGroup(self.num_excitatory, neuron_eqs_e, threshold='v>v_thresh_e', refractory='refrac_e', reset='v=v_reset_e', method='euler')
+		neuron_group_i = b2.NeuronGroup(self.num_inhibitory, neuron_eqs_i, threshold='v>v_thresh_i', refractory='refrac_i', reset='v=v_reset_i', method='euler')
 		neuron_group_e.v = self.params['v_rest_e']
 		neuron_group_i.v = self.params['v_rest_i']
 
-		if weight_matrix_connectivity:
-			self.ee_connection = ee_connection = b2.Synapses(neuron_group_e, neuron_group_e, 'w : 1', on_pre='ge_post += w')
-		else:
-			self.ee_connection = ee_connection = b2.Synapses(neuron_group_e, neuron_group_e, synapse_eqs_e_gaussian, on_pre='ge_post += w')
+		self.ee_connection = ee_connection = b2.Synapses(neuron_group_e, neuron_group_e, 'w : 1', on_pre='ge_post += w')
 		ee_connection.connect(True)
 
 		ei_connection = b2.Synapses(neuron_group_e, neuron_group_i, 'w = weight_ei : 1', on_pre='ge_post += w')
@@ -117,3 +112,8 @@ class AttractorNetwork():
 
 		circular_distance = half_neuron_number - abs(abs(self.ee_connection.i-self.ee_connection.j) - half_neuron_number)
 		self.ee_connection.w = weight_profile[circular_distance]
+
+	def gaussian_EE_connectivity(self, max: float, stddev: float):
+		half_neuron_number = self.num_excitatory // 2
+		circular_distance = half_neuron_number - abs(abs(self.ee_connection.i-self.ee_connection.j) - half_neuron_number)
+		self.ee_connection.w = max*np.exp(-1/2 * (circular_distance/stddev)**2)
