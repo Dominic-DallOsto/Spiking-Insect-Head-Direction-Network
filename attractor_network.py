@@ -13,7 +13,7 @@ neuron_eqs_e = '''
 '''
 
 neuron_eqs_i = '''
-	dv/dt = 1/tau_i * ((v_rest_i - v) + (I_synE+I_synI)/g_mem_i)  + sigma_noise_i * sqrt(2/tau_i)*xi	: volt (unless refractory)
+	dv/dt = 1/tau_i * ((v_rest_i - v) + (I_synE+I_synI)/g_mem_i) + sigma_noise_i * sqrt(2/tau_i)*xi		: volt (unless refractory)
 	I_synE = ge * nS * (E_i_exc-v)																		: amp
 	I_synI = gi * nS * (E_i_inh-v)																		: amp
 	dge/dt = -ge/(tau_syn_i_exc)																		: 1
@@ -31,7 +31,7 @@ default_params = {
 	'refrac_i': 2. * b2.ms,
 	'tau_e': 100. * b2.ms,
 	'tau_i': 10. * b2.ms,
-	'tau_syn_e_exc': 5. * b2.ms,
+	'tau_syn_e_exc': 10. * b2.ms,
 	'tau_syn_e_inh': 2. * b2.ms,
 	'tau_syn_i_exc': 1. * b2.ms,
 	'tau_syn_i_inh': 2. * b2.ms,
@@ -45,8 +45,8 @@ default_params = {
 	'weight_ie': 50.,
 	'weight_ii': 2.,
 	'weight_input': 20.,
-	'sigma_noise_e': 20. * b2.mV,
-	'sigma_noise_i': 10. * b2.mV,
+	'sigma_noise_e': 5. * b2.mV,
+	'sigma_noise_i': 5. * b2.mV,
 }
 
 
