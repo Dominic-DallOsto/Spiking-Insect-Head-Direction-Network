@@ -19,14 +19,18 @@ def spike_train_synchrony_correlation(spike_times, spike_indices, total_duration
 	"""
 	Calculate the average correlation between the windowed spike counts for all pairs
 	of neurons in the network.
-	Returns NaN if no neurons fired.
+	Returns NaN if no neurons fired. Returns 0 if only one neuron fired.
 
 	From: 
 	Kumar, A., Schrader, S., Aertsen, A., & Rotter, S. (2008). 
 	The High-Conductance State of Cortical Networks. Neural Computation, 20(1), 1-43. 
 	https://doi.org/10.1162/neco.2008.20.1.1
-
 	"""
+	if len(spike_indices) == 0:
+		return np.nan
+	elif len(spike_indices) == 1:
+		return 0
+	
 	neuron_indices = np.unique(spike_indices)
 	num_neurons = len(neuron_indices)
 	windowed_spikes = split_spike_indices_by_window(spike_times, spike_indices, 2, total_duration)
@@ -37,8 +41,13 @@ def spike_train_synchrony_correlation(spike_times, spike_indices, total_duration
 		windowed_spike_counts[spike_indices, i] = spike_counts
 	
 	# only calculate the correlations for spike trains where we have spikes
-	correlation_coefficients = np.tril(np.corrcoef(windowed_spike_counts[neuron_indices,:]), k=-1)
-	num_coefficients = num_neurons*(num_neurons-1) / 2
-	# on the off chance that a spike train is perfectly regular, correlating with it will
-	# result in a NaN value - remove these
-	return np.nansum(correlation_coefficients) / (num_coefficients - np.count_nonzero(np.isnan(correlation_coefficients)))
+	spiking_neuron_spike_trains = windowed_spike_counts[neuron_indices,:]
+	if spiking_neuron_spike_trains.shape[0] > 1:
+		correlation_coefficients = np.tril(np.corrcoef(spiking_neuron_spike_trains), k=-1)
+		num_coefficients = num_neurons*(num_neurons-1) / 2
+		# on the off chance that a spike train is perfectly regular, correlating with it will
+		# result in a NaN value - remove these
+		return np.nansum(correlation_coefficients) / (num_coefficients - np.count_nonzero(np.isnan(correlation_coefficients)))
+	else:
+		# we only have one neuron spike train - no synchronisation
+		return 0.0
