@@ -54,7 +54,7 @@ class SpikingNetwork():
 		self.network.run(duration, namespace=self.parameters)
 		return self.spike_monitors
 
-	def plot(self, timescale=b2.ms):
+	def plot(self, timescale=b2.ms, show=False):
 		fig, axs = plt.subplots(len(self.populations), 1, sharex=True)
 		assert(isinstance(axs, np.ndarray))
 
@@ -63,7 +63,22 @@ class SpikingNetwork():
 
 		plt.xlabel(f'time ({timescale})')
 		plt.tight_layout()
-		plt.show()
+		if show:
+			plt.show()
+
+	def plot_spike_rates(self, show=False):
+		fig, axs = plt.subplots(1, len(self.populations))
+		assert(isinstance(axs, np.ndarray))
+
+		for i, spike_monitor in enumerate(self.spike_monitors):
+			indices, counts = np.unique(spike_monitor.i[:], return_counts=True)
+			axs[i].bar(indices, counts / self.network.t)
+			axs[i].set_xlim([0,self.populations[i].N])
+
+		axs[0].set_ylabel('Firing rate (Hz)')
+		plt.tight_layout()
+		if show:
+			plt.show()
 
 
 # Diehl and Cook neuron model from https://github.com/sdpenguin/Brian2STDPMNIST/blob/2d935d0a98b6c94cfbc1cb8304f16a578a57342b/Diehl%26Cook_spiking_MNIST_Brian2.py#L204

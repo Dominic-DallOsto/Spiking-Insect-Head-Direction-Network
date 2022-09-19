@@ -21,17 +21,17 @@ neuron_eqs_i = '''
 '''
 
 default_params = {
-	'v_rest_e': -65. * b2.mV,
-	'v_rest_i': -60. * b2.mV,
-	'v_reset_e': -65. * b2.mV,
-	'v_reset_i': -45. * b2.mV,
-	'v_thresh_e': -52. * b2.mV,
-	'v_thresh_i': -40. * b2.mV,
-	'refrac_e': 5. * b2.ms,
+	'v_rest_e': -52. * b2.mV,
+	'v_rest_i': -52. * b2.mV,
+	'v_reset_e': -52. * b2.mV,
+	'v_reset_i': -52. * b2.mV,
+	'v_thresh_e': -45. * b2.mV,
+	'v_thresh_i': -45. * b2.mV,
+	'refrac_e': 2. * b2.ms,
 	'refrac_i': 2. * b2.ms,
-	'tau_e': 100. * b2.ms,
-	'tau_i': 10. * b2.ms,
-	'tau_syn_e_exc': 10. * b2.ms,
+	'tau_e': 10.*b2.Mohm*2*b2.nF,
+	'tau_i': 10.*b2.Mohm*2*b2.nF,
+	'tau_syn_e_exc': 50. * b2.ms,
 	'tau_syn_e_inh': 2. * b2.ms,
 	'tau_syn_i_exc': 10. * b2.ms,
 	'tau_syn_i_inh': 2. * b2.ms,
@@ -39,12 +39,8 @@ default_params = {
 	'E_e_inh': -100. * b2.mV,
 	'E_i_exc': 0. * b2.mV,
 	'E_i_inh': -85. * b2.mV,
-	'g_mem_e': 1. * b2.nS,
-	'g_mem_i': 1. * b2.nS,
-	'weight_ei': 2.,
-	'weight_ie': 50.,
-	'weight_ii': 2.,
-	'weight_input': 20.,
+	'g_mem_e': 1./(10*b2.Mohm),
+	'g_mem_i': 1./(10*b2.Mohm),
 	'sigma_noise_e': 0. * b2.mV,
 	'sigma_noise_i': 0. * b2.mV,
 }
@@ -68,7 +64,12 @@ connectivity_matrix = scipy.io.loadmat('Insect Head Direction Network/connectivi
 
 net = spiking_network.SpikingNetwork([16,18,18,8], [neuron_eqs_e, neuron_eqs_e, neuron_eqs_e, neuron_eqs_i], [-65.*b2.mV,-65.*b2.mV,-65.*b2.mV,-60.*b2.mV], [neuron_args_e, neuron_args_e, neuron_args_e, neuron_args_i], default_params)
 net.connect_with_connectivity_matrix(connectivity_matrix, ['ge_post += w','ge_post += w','ge_post += w','gi_post += w'])
-net.add_poisson_input(2, [100*b2.Hz if 1 <= i <= 3 else 0*b2.Hz for i in range(18)], 40, 'ge_post += w')
+# net.add_poisson_input(2, [200*b2.Hz if 0 <= i <= 3 else 40*b2.Hz for i in range(18)], 20, 'ge_post += w')
+net.add_poisson_input(2, '(1000*Hz*(0 <= i)*(i <= 3) + 0*Hz)* (t < 500*ms) + (t >= 500*ms)*15*Hz', 40, 'ge_post += w')
 
-out = net.run(500*b2.ms)
+out = net.run(1000*b2.ms)
 net.plot()
+net.plot_spike_rates()
+plt.show()
+
+# spikes don't self-sustain for so long - need a bit of background activity
