@@ -33,7 +33,7 @@ default_params = {
 	'tau_i': 10. * b2.ms,
 	'tau_syn_e_exc': 10. * b2.ms,
 	'tau_syn_e_inh': 2. * b2.ms,
-	'tau_syn_i_exc': 1. * b2.ms,
+	'tau_syn_i_exc': 10. * b2.ms,
 	'tau_syn_i_inh': 2. * b2.ms,
 	'E_e_exc': 0. * b2.mV,
 	'E_e_inh': -100. * b2.mV,
