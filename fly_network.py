@@ -65,11 +65,21 @@ connectivity_matrix = scipy.io.loadmat('Insect Head Direction Network/connectivi
 net = spiking_network.SpikingNetwork([16,18,18,8], [neuron_eqs_e, neuron_eqs_e, neuron_eqs_e, neuron_eqs_i], [-65.*b2.mV,-65.*b2.mV,-65.*b2.mV,-60.*b2.mV], [neuron_args_e, neuron_args_e, neuron_args_e, neuron_args_i], default_params)
 net.connect_with_connectivity_matrix(connectivity_matrix, ['ge_post += w','ge_post += w','ge_post += w','gi_post += w'])
 # net.add_poisson_input(2, [200*b2.Hz if 0 <= i <= 3 else 40*b2.Hz for i in range(18)], 20, 'ge_post += w')
-net.add_poisson_input(2, '(1000*Hz*(0 <= i)*(i <= 3) + 0*Hz)* (t < 500*ms) + (t >= 500*ms)*15*Hz', 40, 'ge_post += w')
+net.add_poisson_input(2, '(1000*Hz*((i == 4)+(i == 13)) + 20*Hz)*(t < 500*ms) + (t >= 500*ms)*20*Hz', 40, 'ge_post += w')
 
 out = net.run(1000*b2.ms)
 net.plot()
+plt.gcf().axes[0].set_ylabel('P-EN')
+plt.gcf().axes[1].set_ylabel('P-EG')
+plt.gcf().axes[2].set_ylabel('E-PG')
+plt.gcf().axes[3].set_ylabel('Delta7')
+plt.tight_layout()
 net.plot_spike_rates()
+plt.gcf().axes[0].set_title('P-EN')
+plt.gcf().axes[1].set_title('P-EG')
+plt.gcf().axes[2].set_title('E-PG')
+plt.gcf().axes[3].set_title('Delta7')
+plt.tight_layout()
 plt.show()
 
 # spikes don't self-sustain for so long - need a bit of background activity
