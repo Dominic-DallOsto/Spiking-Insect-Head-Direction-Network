@@ -32,7 +32,7 @@ class SpikingNetwork():
 			self.population_size_ranges.append((last_neuron_index, last_neuron_index+pop_size))
 		self.network.add(self.populations + self.spike_monitors)
 
-	def connect_with_connectivity_matrix(self, connectivity_matrix:np.ndarray, synapse_equations:list[str]):
+	def connect_network_with_connectivity_matrix(self, connectivity_matrix:np.ndarray, synapse_equations:list[str]):
 		self.connections = []
 		for presynaptic_population_range, presynaptic_population, equation in zip(self.population_size_ranges, self.populations, synapse_equations):
 			for postsynaptic_population_range, postsynaptic_population in zip(self.population_size_ranges, self.populations):
@@ -42,6 +42,29 @@ class SpikingNetwork():
 				connection.connect(True)
 				connection.w = connectivity[connection.i, connection.j]
 				self.connections.append(connection)
+		self.network.add(self.connections)
+
+	def connect_populations_with_connectivity_matrix(self, population_index_from:int, population_index_to:int, connectivity_matrix:np.ndarray, synapse_equation:str):
+		connection = b2.Synapses(self.populations[population_index_from], self.populations[population_index_to], 'w : 1', on_pre=synapse_equation)
+		connection.connect(True)
+		connection.w = connectivity_matrix[connection.i, connection.j]
+		self.network.add(connection)
+		return connection
+
+	def connect_with_named_connectivity_matrix(self, connectivity_matrix:np.ndarray, synapse_equations:list[str]):
+		self.connections = []
+		for presynaptic_population_range, presynaptic_population, equation in zip(self.population_size_ranges, self.populations, synapse_equations):
+			for postsynaptic_population_range, postsynaptic_population in zip(self.population_size_ranges, self.populations):
+				connectivity = connectivity_matrix[presynaptic_population_range[0]:presynaptic_population_range[1],
+				                                   postsynaptic_population_range[0]:postsynaptic_population_range[1]]
+				if np.all(connectivity == 0):
+					continue
+				sources, targets = np.nonzero(connectivity)
+				connection = b2.Synapses(presynaptic_population, postsynaptic_population, f'w = {connectivity[sources[0],targets[0]]}: 1', on_pre=equation)
+				connection.connect(i=sources, j=targets)
+				self.connections.append(connection)
+				print(connection.N_incoming_post)
+				print(connection.N_outgoing_pre)
 		self.network.add(self.connections)
 
 	def add_poisson_input(self, population_index:int, rates:list[b2.Quantity|str]|b2.Quantity|str, weight:float|str, equation:str):
@@ -56,7 +79,8 @@ class SpikingNetwork():
 
 	def plot(self, timescale=b2.ms, show=False):
 		fig, axs = plt.subplots(len(self.populations), 1, sharex=True)
-		assert(isinstance(axs, np.ndarray))
+		if not isinstance(axs, np.ndarray):
+			axs = np.array([axs])
 
 		for i, spike_monitor in enumerate(self.spike_monitors):
 			axs[i].plot(spike_monitor.t/timescale, spike_monitor.i[:], '.')
@@ -68,12 +92,13 @@ class SpikingNetwork():
 
 	def plot_spike_rates(self, show=False):
 		fig, axs = plt.subplots(1, len(self.populations))
-		assert(isinstance(axs, np.ndarray))
+		if not isinstance(axs, np.ndarray):
+			axs = np.array([axs])
 
 		for i, spike_monitor in enumerate(self.spike_monitors):
 			indices, counts = np.unique(spike_monitor.i[:], return_counts=True)
 			axs[i].bar(indices, counts / self.network.t)
-			axs[i].set_xlim([0,self.populations[i].N])
+			axs[i].set_xlim([0, self.populations[i].N])
 
 		axs[0].set_ylabel('Firing rate (Hz)')
 		plt.tight_layout()
